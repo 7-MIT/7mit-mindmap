@@ -4,6 +4,6 @@ Interactive, animated mind-map creator. Open `index.html` in any browser — no 
 
 Features: 6 layouts (balanced, tree, org chart, radial, force physics, free-form), springy animation, flowing edges, 6 themes, shapes/colors/emoji/priority/notes, progress bars, cross-links, collapse, multi-select, re-parenting, undo/redo, search, focus mode, presentation mode, minimap, templates, outline paste/import, PNG/JSON/Markdown export, share links.
 
-AI: open the AI panel (`Ctrl+J`), add your own API key (Anthropic or any OpenAI-compatible endpoint) in Settings. It can expand, rewrite, translate, annotate, reorganize or add to the map, or generate a whole new map. The key stays in this browser.
+AI: open the AI panel (`Ctrl+J`). It uses a small server proxy (`server/`, see `server/README.md`) that holds the Gemini/Groq keys as secrets, so visitors never enter keys. Own keys (Gemini, Groq, Claude, OpenAI-compatible) remain an optional fallback in Settings. It can expand, rewrite, translate, annotate, reorganize or add to the map, or generate a whole new map. The key stays in this browser.
 
 Saving: autosaves to the device (localStorage) on every change; `Ctrl+S` saves a `.json` file to your device (File System Access API when available), and File → Open reloads it.

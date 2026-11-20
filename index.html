@@ -27,6 +27,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b1020;color:var(--te
 #aiMsg{margin-top:10px;font-size:13px;color:var(--sub)}#aiMsg.err{color:#ff7b7b}#aiMsg.ok{color:var(--text)}
 #aiChips .chip{display:inline-flex;gap:5px;align-items:center}
 #ai.busy #aiChips{opacity:.45;pointer-events:none}
+.ih{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-weight:700;font-size:15px}
+#nt{position:fixed;z-index:5;display:flex;gap:2px;padding:4px;border-radius:12px;transform:translate(-50%,-100%);transition:opacity .18s;pointer-events:auto;left:0;top:0}
+#nt.below{transform:translate(-50%,0)}#nt.hid{opacity:0;pointer-events:none}
+#nt .b{padding:6px 8px;border-radius:8px}#nt .b.danger:hover{background:#e5484d}
+#zoom{position:fixed;right:12px;bottom:12px;z-index:3;display:flex;align-items:center;padding:3px}
+#zoom .b{padding:6px 9px}#zPct{min-width:46px;justify-content:center;font-size:12.5px}
+body.presenting #nt,body.presenting #zoom{opacity:0;pointer-events:none}
 .ic{width:1.15em;height:1.15em;vertical-align:-.2em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .b .ic,.mi .ic{width:1.1em;height:1.1em}
 .emo .ic{width:18px;height:18px}
@@ -55,7 +62,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 
 .mi.chk::before{content:"○";margin-right:8px;color:var(--sub)}
 .mi.chk.on::before{content:"●";color:var(--accent)}
 .mi.chk{justify-content:flex-start}
-#insp{position:fixed;right:10px;top:68px;width:272px;max-height:calc(100% - 84px);overflow:auto;padding:12px;z-index:4;transform:translateX(120%);transition:transform .4s cubic-bezier(.2,.9,.3,1.15)}
+#insp{position:fixed;right:10px;top:104px;width:272px;max-height:calc(100% - 160px);overflow:auto;padding:12px;z-index:4;transform:translateX(120%);transition:transform .4s cubic-bezier(.2,.9,.3,1.15)}
 #insp.show{transform:none}
 #insp h4{margin:12px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--sub);font-weight:700}
 #insp h4:first-child{margin-top:0}
@@ -167,14 +174,20 @@ body.presenting #top,body.presenting #ai,body.presenting #insp,body.presenting #
   <div class="act"><button class="b primary" id="aiRun"></button><button class="b" id="aiGen"><i data-i="brain-circuit"></i> New map from prompt</button></div>
   <div id="aiMsg">Ctrl+Enter to run. Every AI change is one undo step (Ctrl+Z).</div>
   <details id="aiSet"><summary>Settings</summary>
-    <label>Provider</label><select id="aiProv"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI-compatible</option></select>
-    <label>API key</label><input type="password" id="aiKey" placeholder="sk-…" autocomplete="off">
+    <label>Provider</label><select id="aiProv"><option value="proxy">Built-in AI (no key needed)</option><option value="gemini">Google Gemini</option><option value="groq">Groq</option><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI-compatible</option></select>
+    <div id="aiProvInfo" style="font-size:12px;color:var(--sub);margin-top:4px"></div>
+    <div id="aiOwn">
+    <label>API key</label><input type="password" id="aiKey" placeholder="API key" autocomplete="off">
     <label>Model</label><input type="text" id="aiModel" placeholder="model name">
-    <label>Base URL (optional)</label><input type="text" id="aiBase" placeholder="https://api.anthropic.com">
-    <p style="font-size:12px;color:var(--sub);margin:8px 0 0">The key is stored only in this browser and sent directly to the provider you choose. Your map text is sent with each request.</p>
+    <label>Base URL (optional)</label><input type="text" id="aiBase" placeholder="">
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--text)"><input type="checkbox" id="aiFb" style="width:auto"> If it fails, try my other configured providers</label>
+    <p style="font-size:12px;color:var(--sub);margin:8px 0 0">Built-in AI needs no setup. If you use your own key, it is stored only in this browser. Your map text is sent to the AI provider with each request.</p>
   </details>
 </div>
 <div id="insp" class="glass"></div>
+<div id="nt" class="glass hid"></div>
+<div id="zoom" class="glass"><button class="b" id="zOut" title="Zoom out (-)"><i data-i="minus"></i></button><button class="b" id="zPct" title="Reset to 100%">100%</button><button class="b" id="zIn" title="Zoom in (+)"><i data-i="plus"></i></button><button class="b" id="zFit" title="Fit to screen (Ctrl+0)"><i data-i="maximize"></i></button></div>
 <div id="mini" class="glass"><canvas></canvas></div>
 <div id="status" class="glass"></div>
 <textarea id="ed" rows="1" spellcheck="false"></textarea>
@@ -194,7 +207,7 @@ body.presenting #top,body.presenting #ai,body.presenting #insp,body.presenting #
     <kbd>L</kbd><span>Link mode (cross-links)</span><kbd>F</kbd><span>Focus mode</span>
     <kbd>P</kbd><span>Presentation mode</span><kbd>Ctrl+J</kbd><span>AI assistant</span><kbd>X</kbd><span>Mark done (confetti!)</span>
     <kbd>1 2 3</kbd><span>Priority (0 clears)</span><kbd>Shift+click / drag</kbd><span>Multi-select / box select</span>
-    <kbd>Alt+drag</kbd><span>Drag a node onto another to re-parent</span><kbd>Right-click</kbd><span>Context menu</span>
+    <kbd>Drag onto node</kbd><span>Re-parent (drop in empty space = move / reorder)</span><kbd>Alt+drag</kbd><span>Move freely, no re-parent or reorder</span><kbd>I</kbd><span>Style panel</span><kbd>Right-click</kbd><span>Context menu</span>
     <kbd>Wheel / pinch</kbd><span>Zoom</span><kbd>Drag canvas</kbd><span>Pan</span>
   </div>
   <div class="act"><button class="b" data-close>Close</button></div>
@@ -208,6 +221,7 @@ body.presenting #top,body.presenting #ai,body.presenting #insp,body.presenting #
 </div></div>
 <input type="file" id="file" accept=".json,.txt,.md,.opml" hidden>
 
+<script src="config.js"></script>
 <script>
 'use strict';
 /* Icons: Lucide (https://lucide.dev, ISC license) — inline SVG, works offline */
@@ -247,7 +261,7 @@ const PRI={1:'#ff5d5d',2:'#ffb020',3:'#4aa8ff'};
 
 /* ============ state ============ */
 const S={nodes:new Map(),root:null,order:[],links:[],name:'My Mind Map',theme:'aurora',layout:'balanced',uid:1,
- sel:new Set(),prim:null,hover:null,editing:null,linkMode:false,focus:false,search:'',dirty:true,
+ sel:new Set(),prim:null,hover:null,inspOpen:false,hoverGrace:0,editing:null,linkMode:false,focus:false,search:'',dirty:true,
  flow:true,grid:true,stars:true,mini:true,sound:false,present:null,drop:null,box:null};
 const N=id=>S.nodes.get(id), par=n=>n.parent==null?null:N(n.parent), kidsOf=n=>n.kids.map(N);
 const vk=n=>n.collapsed?[]:n.kids.map(N);
@@ -341,6 +355,7 @@ function forceStep(dt){
 function step(dt){
   dt=Math.min(dt,1/20);
   if(S.dirty){S.dirty=false;relayout()}
+  if(S.hover&&S.hoverGrace&&performance.now()>S.hoverGrace&&!drag){S.hover=null;S.hoverGrace=0}
   const k=1-Math.exp(-dt*9);cam.x+=(camT.x-cam.x)*k;cam.y+=(camT.y-cam.y)*k;cam.z+=(camT.z-cam.z)*k;
   const F=S.layout==='force';if(F)forceStep(dt);
   const P=S.present?presSet():null,fs=S.focus&&S.prim?focusSet(S.prim):null;
@@ -684,9 +699,9 @@ addEventListener('beforeunload',()=>{if(S.root)store.set('mindmap7mit.v1',JSON.s
 
 /* ============ camera ============ */
 function bounds(list){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const n of list){const x=S.layout==='force'?n.x:n.tx,y=S.layout==='force'?n.y:n.ty;x0=Math.min(x0,x-n.w/2);x1=Math.max(x1,x+n.w/2);y0=Math.min(y0,y-n.h/2);y1=Math.max(y1,y+n.h/2)}return{x0,y0,x1,y1}}
-function fit(list,instant=false){const ns=list||S.order.filter(n=>n.vis);if(!ns.length)return;if(!list)relayout();const b=bounds(ns),pr=S.sel.size&&!S.present?290:0,aw=W-pr-60,ah=H-150;
+function fit(list,instant=false){const ns=list||S.order.filter(n=>n.vis);if(!ns.length)return;if(!list)relayout();const b=bounds(ns),pr=S.sel.size&&S.inspOpen&&!S.present?290:0,aw=W-pr-60,ah=H-150;
   const z=clamp(Math.min(aw/(b.x1-b.x0),ah/(b.y1-b.y0)),.12,1.5);camT.z=z;camT.x=(b.x0+b.x1)/2+pr/2/z;camT.y=(b.y0+b.y1)/2+10/z;if(instant)Object.assign(cam,camT)}
-function reveal(n){const p=w2scr(n.x,n.y,camT),m=90;if(p.x<m||p.x>W-m-(S.sel.size?280:0)||p.y<110||p.y>H-m){camT.x=n.x;camT.y=n.y}}
+function reveal(n){const p=w2scr(n.x,n.y,camT),m=90;if(p.x<m||p.x>W-m-(S.sel.size&&S.inspOpen?280:0)||p.y<110||p.y>H-m){camT.x=n.x;camT.y=n.y}}
 function navigate(dx,dy){const n=S.prim;if(!n){select(S.root);return}let best=null,bs=1e18;
   for(const m of S.order){if(m===n||!m.vis||m.sc<.5)continue;const rx=m.x-n.x,ry=m.y-n.y,al=rx*dx+ry*dy;if(al<=1)continue;const pe=Math.abs(rx*dy-ry*dx),sc=al+pe*2.2;if(sc<bs){bs=sc;best=m}}
   if(best){select(best);reveal(best)}}
@@ -701,13 +716,13 @@ function endEdit(save){if(!S.editing)return;const n=N(S.editing);S.editing=null;
   S.dirty=true;relayout();syncInsp();commit()}
 ed.addEventListener('input',()=>{const n=N(S.editing);if(n){n.text=ed.value||' ';S.dirty=true;relayout();n._k=null;S.dirty=true}});
 ed.addEventListener('keydown',e=>{e.stopPropagation();
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();const n=N(S.editing);endEdit(true);if(n&&S.nodes.has(n.id)){select(n)}}
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();const n=N(S.editing),wasNew=edNew;endEdit(true);if(n&&S.nodes.has(n.id)){select(n);if(wasNew&&n.parent!=null)addSibling(n)}}
   else if(e.key==='Escape'){e.preventDefault();endEdit(false)}
   else if(e.key==='Tab'){e.preventDefault();const n=N(S.editing);endEdit(true);if(n&&S.nodes.has(n.id))addChild(n)}});
 ed.addEventListener('blur',()=>{if(S.editing)endEdit(true)});
 
 /* ============ pointer interaction ============ */
-const P=new Map();let drag=null,lastDown={t:0,x:0,y:0},pinch=null;
+const P=new Map();let drag=null,lastDown={t:0,x:0,y:0},pinch=null,lpT=0;
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);closeMenus();hideCtx();S.mouse={x:e.clientX,y:e.clientY};P.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(P.size===2){const[a,b]=[...P.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),z:cam.z};drag=null;return}
@@ -723,12 +738,13 @@ cv.addEventListener('pointerdown',e=>{
   else{if(dbl){const nn=addChild(S.prim||S.root,'',true,w);return}
     if(e.shiftKey){drag={t:'box',moved:true};S.box={x0:e.clientX,y0:e.clientY,x1:e.clientX,y1:e.clientY}}
     else drag={t:'pan',sx:e.clientX,sy:e.clientY,cx:cam.x,cy:cam.y,moved:false}}
+  if(e.pointerType==='touch'&&drag){clearTimeout(lpT);lpT=setTimeout(()=>{if(drag&&!drag.moved&&P.size===1){drag=null;openCtx(e.clientX,e.clientY)}},550)}
 });
 cv.addEventListener('pointermove',e=>{
   S.mouse={x:e.clientX,y:e.clientY};if(P.has(e.pointerId))P.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(P.size===2&&pinch){const[a,b]=[...P.values()],d=Math.hypot(a.x-b.x,a.y-b.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2,wp=scr2w(mx,my);
     cam.z=camT.z=clamp(pinch.z*d/pinch.d,.1,3);cam.x=camT.x=wp.x-(mx-W/2)/cam.z;cam.y=camT.y=wp.y-(my-H/2)/cam.z;return}
-  if(!drag){const w=scr2w(e.clientX,e.clientY),hh=handleAt(w),n=hh?hh.n:nodeAt(w);S.hover=n?{n}:null;cv.style.cursor=hh?'pointer':n?(S.linkMode?'alias':'grab'):S.linkMode?'crosshair':'default';return}
+  if(!drag){const w=scr2w(e.clientX,e.clientY),hh=handleAt(w),n=hh?hh.n:nodeAt(w);if(n){S.hover={n};S.hoverGrace=0}else if(S.hover&&!S.hoverGrace)S.hoverGrace=performance.now()+350;else if(S.hover&&performance.now()>S.hoverGrace){S.hover=null;S.hoverGrace=0}cv.style.cursor=hh?'pointer':n?(S.linkMode?'alias':'grab'):S.linkMode?'crosshair':'default';return}
   if(drag.t==='pan'){const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;if(Math.hypot(dx,dy)>3)drag.moved=true;cam.x=camT.x=drag.cx-dx/cam.z;cam.y=camT.y=drag.cy-dy/cam.z;cv.style.cursor='grabbing'}
   else if(drag.t==='box'){S.box.x1=e.clientX;S.box.y1=e.clientY}
   else if(drag.t==='node'){
@@ -736,27 +752,35 @@ cv.addEventListener('pointermove',e=>{
       if(!drag.alt&&S.layout!=='force'&&S.layout!=='free'){} drag.movers.forEach(m=>subtree(m).forEach(x=>{x.held=true;x.vx=x.vy=0;if(S.layout==='force')x.pin=true}));cv.style.cursor='grabbing'}
     const w=scr2w(e.clientX,e.clientY),dx=w.x-drag.lw.x,dy=w.y-drag.lw.y;drag.lw=w;
     for(const m of drag.movers){subtree(m).forEach(x=>{x.x+=dx;x.y+=dy;if(S.layout==='free'&&!drag.alt){x.fx+=dx;x.fy+=dy}});if(!drag.alt&&S.layout!=='free'&&S.layout!=='force'){m.dx+=dx;m.dy+=dy}}
-    S.drop=drag.alt?nodeAt(w,drag.n):null;if(S.drop&&S.drop.id===drag.n.parent)S.drop=null}
+    S.drop=drag.alt?null:dropCand(w,drag.movers)}
 });
-function endPointer(e){
+function dropCand(w,movers){const bad=new Set(movers.flatMap(m=>subtree(m).map(x=>x.id)));
+  for(let i=S.order.length-1;i>=0;i--){const n=S.order[i];if(n.sc<.5||bad.has(n.id))continue;if(Math.abs(w.x-n.x)<=n.w/2+3&&Math.abs(w.y-n.y)<=n.h/2+3)return movers.every(m=>m.parent===n.id)?null:n}return null}
+function reorderDrop(n){const L=S.layout;if(!['balanced','right','down'].includes(L))return false;const p=par(n);if(!p||p.kids.length<2)return false;
+  const hor=L!=='down',side=m=>L==='balanced'?(m.lx-p.lx>=0?1:-1):1,sg=side(n),ids=p.kids.filter(i=>side(N(i))===sg);if(ids.length<2)return false;
+  const key=m=>m===n?(hor?m.y:m.x):(hor?m.ty:m.tx),sorted=[...ids].sort((a,b)=>key(N(a))-key(N(b)));if(sorted.every((v,i)=>v===ids[i]))return false;
+  let j=0;p.kids=p.kids.map(i=>side(N(i))===sg?sorted[j++]:i);n.dx=n.dy=0;S.dirty=true;return true}
+function endPointer(e){clearTimeout(lpT);
   P.delete(e.pointerId);if(P.size<2)pinch=null;if(!drag)return;const d=drag;drag=null;
   if(d.t==='pan'&&!d.moved&&!S.present){select(null);}
   else if(d.t==='box'){const b=S.box;S.box=null;const x0=Math.min(b.x0,b.x1),x1=Math.max(b.x0,b.x1),y0=Math.min(b.y0,b.y1),y1=Math.max(b.y0,b.y1);S.sel.clear();S.prim=null;
     for(const n of S.order){if(!n.vis)continue;const p=w2scr(n.x,n.y);if(p.x>=x0&&p.x<=x1&&p.y>=y0&&p.y<=y1){S.sel.add(n.id);S.prim=n}}syncInsp()}
   else if(d.t==='node'){
     if(d.moved){d.movers.forEach(m=>subtree(m).forEach(x=>{x.held=false;x.pin=false}));
-      if(d.alt&&S.drop){let ok=false;for(const m of d.movers)ok=reparent(m,S.drop)||ok;if(ok)toast('Re-parented');}
+      if(!d.alt&&S.drop){let ok=false;const tn=S.drop.text;for(const m of d.movers)ok=reparent(m,S.drop)||ok;if(ok)toast('Moved under “'+tn+'”')}
+      else if(!d.alt){let re=false;for(const m of d.movers)re=reorderDrop(m)||re;if(re)toast('Reordered')}
       S.drop=null;S.dirty=true;commit()}
     else if(d.wasSel&&!e.shiftKey){select(d.n)}}
   cv.style.cursor='default'}
 cv.addEventListener('pointerup',endPointer);cv.addEventListener('pointercancel',endPointer);
-cv.addEventListener('pointerleave',()=>{if(!drag)S.hover=null});
+cv.addEventListener('pointerleave',()=>{if(!drag){S.hover=null;S.hoverGrace=0}});
 cv.addEventListener('wheel',e=>{e.preventDefault();if(S.editing)endEdit(true);
   const wp=scr2w(e.clientX,e.clientY,cam),nz=clamp(camT.z*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),.08,4);camT.z=nz;camT.x=wp.x-(e.clientX-W/2)/nz;camT.y=wp.y-(e.clientY-H/2)/nz},{passive:false});
-cv.addEventListener('contextmenu',e=>{e.preventDefault();if(S.present)return;const w=scr2w(e.clientX,e.clientY),n=nodeAt(w);if(n&&!S.sel.has(n.id))select(n);
-  const items=n?[['plus','Add child',()=>addChild(n)],['corner-down-right','Add sibling',()=>addSibling(n)],['pencil','Edit text',()=>startEdit(n)],['copy','Duplicate',duplicate],[n.collapsed?'chevron-right':'chevron-down',n.collapsed?'Expand':'Collapse',()=>toggleCollapse(n)],['circle-check',n.done?'Mark not done':'Mark done',()=>setDone(selNodes(),!n.done)],['link','Link to…',()=>{S.linkMode=true;syncLink();toast('Click the node to link to')}],['focus','Focus branch',()=>{S.focus=true;syncFocus()}],['wand-sparkles','AI: expand this',()=>{aiPanel(true);aiQuick('expand')}],['trash-2','Delete',deleteSel]]
+cv.addEventListener('contextmenu',e=>{e.preventDefault();openCtx(e.clientX,e.clientY)});
+function openCtx(cx,cy){if(S.present)return;const w=scr2w(cx,cy),n=nodeAt(w);if(n&&!S.sel.has(n.id))select(n);
+  const items=n?[['plus','Add child',()=>addChild(n)],['corner-down-right','Add sibling',()=>addSibling(n)],['pencil','Edit text',()=>startEdit(n)],['palette','Style…',()=>{S.inspOpen=true;inspKey='';syncInsp()}],['copy','Duplicate',duplicate],[n.collapsed?'chevron-right':'chevron-down',n.collapsed?'Expand':'Collapse',()=>toggleCollapse(n)],['circle-check',n.done?'Mark not done':'Mark done',()=>setDone(selNodes(),!n.done)],['link','Link to…',()=>{S.linkMode=true;syncLink();toast('Click the node to link to')}],['focus','Focus branch',()=>{S.focus=true;syncFocus()}],['wand-sparkles','AI: expand this',()=>{aiPanel(true);aiQuick('expand')}],['trash-2','Delete',deleteSel]]
    :[['plus','Add node',()=>addChild(S.root,'',true,w)],['maximize','Fit to screen',()=>fit()],['sparkles','Tidy',tidy],['clipboard-paste','Paste outline…',()=>openModal('mPaste')]];
-  showCtx(e.clientX,e.clientY,items)});
+  showCtx(cx,cy,items)}
 function showCtx(x,y,items){const m=$('#ctx');m.innerHTML='';items.forEach(([i,l,f])=>{const d=document.createElement('div');d.className='mi';d.innerHTML='<span>'+ic(i)+' '+l+'</span>';d.onclick=()=>{hideCtx();f()};m.appendChild(d)});
   m.classList.add('open');m.style.left=Math.min(x,W-210)+'px';m.style.top=Math.min(y,H-m.offsetHeight-8)+'px'}
 const hideCtx=()=>$('#ctx').classList.remove('open');
@@ -796,6 +820,7 @@ addEventListener('keydown',e=>{
     case 'p':case 'P':enterPresent();break;
     case 'x':case 'X':{const ns=selNodes();if(ns.length)setDone(ns,!ns[0].done);break}
     case '0':case '1':case '2':case '3':{const ns=selNodes();ns.forEach(n=>n.pri=+k);S.dirty=true;syncInsp();commit();break}
+    case 'i':case 'I':S.inspOpen=!S.inspOpen;inspKey='';syncInsp();break;
     case '?':openModal('mHelp');break;
     case 'Escape':if(S.linkMode){S.linkMode=false;syncLink()}else if(S.search){$('#search').value='';S.search=''}else select(null);break;
   }
@@ -827,11 +852,11 @@ $('#pPrev').onclick=()=>presGo(-1);$('#pNext').onclick=()=>presGo(1);$('#pAuto')
 /* ============ inspector ============ */
 const insp=$('#insp');let inspKey='';
 function syncInsp(){
-  const ns=selNodes(),n=S.prim&&S.nodes.has(S.prim.id)?S.prim:ns[0];const show=ns.length>0&&n&&!S.present;insp.classList.toggle('show',show);if(!show)return;
+  const ns=selNodes(),n=S.prim&&S.nodes.has(S.prim.id)?S.prim:ns[0];const show=ns.length>0&&n&&!S.present&&S.inspOpen;insp.classList.toggle('show',show);if(!show)return;
   const T=TH(),multi=ns.length>1,key=ns.map(x=>x.id).join()+'|'+S.theme+'|'+ns.map(x=>[x.color,x.shape,x.icon,x.pri,x.done,x.collapsed].join()).join(';');
   if(key===inspKey&&document.activeElement&&insp.contains(document.activeElement))return;inspKey=key;
   const act=document.activeElement;const keepTxt=act&&insp.contains(act)&&act.id;
-  insp.innerHTML=`<h4>${multi?ns.length+' nodes selected':'Text'}</h4>
+  insp.innerHTML=`<div class="ih"><span>Style</span><button class="b" data-act="close" title="Close (I)">${ic('x')}</button></div><h4>${multi?ns.length+' nodes selected':'Text'}</h4>
   ${multi?'':`<input type="text" id="iText" value="${esc(n.text)}" spellcheck="false">`}
   <h4>Color</h4><div class="row"><div class="sw auto ${n.color?'':'on'}" data-col="" title="Auto"></div>${T.pal.concat([T.root,'#ffffff','#222222']).map(c=>`<div class="sw ${n.color===c?'on':''}" style="background:${c}" data-col="${c}"></div>`).join('')}<input type="color" id="iCol" value="${n.color||n._c}" style="width:30px;height:26px;padding:0;border:0;background:none"></div>
   <h4>Shape</h4><div class="row">${SHAPES.map(([k,l,i])=>`<div class="chip ${n.shape===k?'on':''}" data-shape="${k}">${ic(i)} ${l}</div>`).join('')}</div>
@@ -848,7 +873,7 @@ insp.addEventListener('click',e=>{const t=e.target.closest('[data-col],[data-sha
   else if('emo' in t.dataset){ns.forEach(n=>{n.icon=t.dataset.emo;n._k=null});if(t.dataset.emo)burst(S.prim.x,S.prim.y,S.prim._c,8)}
   else if('pri' in t.dataset)ns.forEach(n=>n.pri=+t.dataset.pri);
   else if('done' in t.dataset){setDone(ns,!ns[0].done);return}
-  else if(t.dataset.act){const a=t.dataset.act;if(a==='child')addChild(S.prim);else if(a==='sib')addSibling(S.prim);else if(a==='dup')duplicate();else if(a==='col')toggleCollapse(S.prim);else if(a==='del')deleteSel();return}
+  else if(t.dataset.act){const a=t.dataset.act;if(a==='close'){S.inspOpen=false;inspKey='';syncInsp();return}if(a==='child')addChild(S.prim);else if(a==='sib')addSibling(S.prim);else if(a==='dup')duplicate();else if(a==='col')toggleCollapse(S.prim);else if(a==='del')deleteSel();return}
   S.dirty=true;inspKey='';relayout();syncInsp();commit()});
 insp.addEventListener('input',e=>{const n=S.prim;if(!n)return;if(e.target.id==='iText'){n.text=e.target.value||' ';S.dirty=true}else if(e.target.id==='iNote'){n.note=e.target.value}else if(e.target.id==='iCol'){selNodes().forEach(m=>m.color=e.target.value);S.dirty=true;relayout()}});
 insp.addEventListener('change',e=>{if(e.target.id==='iText'&&!e.target.value.trim()){}if(['iText','iNote','iCol'].includes(e.target.id)){inspKey='';commit()}});
@@ -857,7 +882,7 @@ insp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&e.ta
 /* ============ UI wiring ============ */
 function toast(msg){const t=document.createElement('div');t.className='t glass';t.textContent=String(msg).replace(/[\p{Extended_Pictographic}\uFE0F✔]/gu,'').replace(/\s+/g,' ').trim();$('#toast').appendChild(t);setTimeout(()=>t.classList.add('out'),1800);setTimeout(()=>t.remove(),2300)}
 function updateStatus(){const q=S.search.trim().toLowerCase(),m=q?S.order.filter(n=>matches(n,q)).length:0;
-  $('#status').innerHTML=(S.savedAt?ic('save')+' auto-saved on this device · ':'')+`<b>${S.nodes.size}</b> nodes · <b>${S.links.length}</b> links · <b>${Math.round(cam.z*100)}%</b>`+(q?` · <b>${m}</b> match${m===1?'':'es'} (Enter = next)`:'')+(S.linkMode?' · <b>'+ic('link')+' Link mode</b>: click a node to link':'')+(S.focus?' · <b>'+ic('focus')+' Focus</b>':'')+` · <span>Tab child · Enter sibling · ? help</span>`}
+  $('#status').innerHTML=(S.savedAt?ic('save')+' auto-saved on this device · ':'')+`<b>${S.nodes.size}</b> nodes · <b>${S.links.length}</b> links`+(q?` · <b>${m}</b> match${m===1?'':'es'} (Enter = next)`:'')+(S.linkMode?' · <b>'+ic('link')+' Link mode</b>: click a node to link':'')+(S.focus?' · <b>'+ic('focus')+' Focus</b>':'')+` · <span>${S.sel.size?'Tab child · Enter sibling · F2 rename · Del delete · drag onto a node to re-parent':'Double-click canvas to add · drag to pan · scroll to zoom · Shift+drag to box-select'}</span>`;$('#zPct').textContent=Math.round(cam.z*100)+'%'}
 setInterval(updateStatus,500);
 function closeMenus(){$$('.menu').forEach(m=>m.classList.remove('open'))}
 $$('[data-dd]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const m=document.getElementById(b.dataset.dd),o=m.classList.contains('open');closeMenus();if(!o)m.classList.add('open')}));
@@ -866,6 +891,17 @@ function openModal(id){document.getElementById(id).classList.add('open');closeMe
 $$('.modal').forEach(m=>m.addEventListener('pointerdown',e=>{if(e.target===m||e.target.hasAttribute('data-close'))m.classList.remove('open')}));
 $$('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('.modal').classList.remove('open')));
 $('#bHelp').onclick=()=>openModal('mHelp');
+$('#zIn').onclick=()=>{camT.z=clamp(camT.z*1.25,.08,4)};$('#zOut').onclick=()=>{camT.z=clamp(camT.z/1.25,.08,4)};$('#zPct').onclick=()=>{camT.z=1};$('#zFit').onclick=()=>fit();
+// floating node toolbar
+const NT=[['child','plus','Add child (Tab)',1],['sib','corner-down-right','Add sibling (Enter)',1],['edit','pencil','Rename (F2)',1],['style','palette','Style (I)',0],['done','circle-check','Mark done (X)',0],['ai','wand-sparkles','AI (Ctrl+J)',0],['del','trash-2','Delete (Del)',0]];
+$('#nt').innerHTML=NT.map(([k,i,t,one])=>`<button class="b${k==='del'?' danger':''}" data-nt="${k}" data-one="${one}" title="${t}">${ic(i)}</button>`).join('');
+$('#nt').addEventListener('click',e=>{const b=e.target.closest('[data-nt]');if(!b)return;const n=S.prim;if(!n)return;
+  ({child:()=>addChild(n),sib:()=>addSibling(n),edit:()=>startEdit(n),style:()=>{S.inspOpen=!S.inspOpen;inspKey='';syncInsp()},done:()=>setDone(selNodes(),!n.done),ai:()=>aiPanel(true),del:deleteSel})[b.dataset.nt]()});
+function updateNT(){const el=$('#nt'),n=S.prim,ok=n&&S.nodes.has(n.id)&&!S.editing&&!S.present&&!S.linkMode&&!(drag&&drag.moved)&&n.sc>.8&&!AI.busy;
+  el.classList.toggle('hid',!ok);if(!ok)return;const multi=S.sel.size>1,root=n.parent==null;
+  el.querySelectorAll('[data-nt]').forEach(b=>{const k=b.dataset.nt;b.style.display=(multi&&b.dataset.one==='1')||(root&&(k==='sib'||k==='del'))?'none':''});
+  const p=w2scr(n.x,n.y),hh=n.h/2*cam.z;let y=p.y-hh-14,below=false;if(y<150){y=p.y+hh+14;below=true}
+  el.classList.toggle('below',below);el.style.left=clamp(p.x,130,W-130)+'px';el.style.top=clamp(y,below?60:120,H-70)+'px'}
 $('#bUndo').onclick=undo;$('#bRedo').onclick=redo;$('#bFit').onclick=()=>fit();$('#bTidy').onclick=tidy;$('#bPresent').onclick=enterPresent;
 $('#bLink').onclick=()=>{S.linkMode=!S.linkMode;syncLink();if(S.linkMode)toast(S.prim?'Click the node to link to':'Select a node first, then click another')};
 $('#bFocus').onclick=()=>{S.focus=!S.focus;syncFocus()};
@@ -918,7 +954,12 @@ $('#mini').addEventListener('pointerdown',e=>{const mv=ev=>{if(!miniMap)return;c
   mv(e);const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up)};addEventListener('pointermove',mv);addEventListener('pointerup',up)});
 
 /* ============ AI assistant ============ */
-const AI={cfg:Object.assign({provider:'anthropic',key:'',model:'claude-sonnet-5-5',base:''},(()=>{try{return JSON.parse(store.get('mm7.ai')||'{}')}catch(e){return{}}})()),scope:'sel',busy:false,target:null,ctl:null};
+const PROXY=((window.MM7_CONFIG||{}).aiProxy||'').trim();
+const PROV={proxy:{name:'Built-in AI',model:'',base:''},gemini:{name:'Gemini',model:'gemini-2.5-flash',base:'https://generativelanguage.googleapis.com'},groq:{name:'Groq',model:'llama-3.3-70b-versatile',base:'https://api.groq.com/openai/v1'},anthropic:{name:'Claude',model:'claude-sonnet-5-5',base:'https://api.anthropic.com'},openai:{name:'OpenAI-compatible',model:'',base:'https://api.openai.com/v1'}};
+const AI=(()=>{let sv={};try{sv=JSON.parse(store.get('mm7.ai')||'{}')}catch(e){}
+  const cfg={provider:PROXY?'proxy':'gemini',keys:{},models:{},bases:{},fallback:true,...sv};cfg.keys=cfg.keys||{};cfg.models=cfg.models||{};cfg.bases=cfg.bases||{};
+  if(sv.key&&!sv.keys){cfg.keys[sv.provider||'anthropic']=sv.key;cfg.models[sv.provider||'anthropic']=sv.model||'';cfg.bases[sv.provider||'anthropic']=sv.base||''}
+  if(!PROV[cfg.provider])cfg.provider=PROXY?'proxy':'gemini';return{cfg,scope:'sel',busy:false,target:null,ctl:null,shown:cfg.provider,used:''}})();
 const AIQ=[
  ['expand','list-plus','Expand','Add 4-6 insightful child ideas under the SELECTED node, with a few sub-ideas where useful. Do not duplicate existing children.'],
  ['improve','wand-sparkles','Improve wording','Rewrite the text of every node in scope to be clearer and more concise. Keep the meaning. Only update nodes that actually change.'],
@@ -931,8 +972,9 @@ const AIQ=[
  ['questions','circle-help','Ask questions','Add 3-5 probing questions as children of the SELECTED node that would deepen the thinking.'],
  ['next','rocket','Next steps','Add 3-5 concrete action items as children of the SELECTED node.']];
 $('#aiChips').innerHTML=AIQ.map(q=>`<div class="chip" data-q="${q[0]}">${ic(q[1])} ${q[2]}</div>`).join('');
+const aiReady=k=>k==='proxy'?!!PROXY:!!(AI.cfg.keys[k]&&(AI.cfg.models[k]||PROV[k].model));
 function aiPanel(open){const p=$('#ai'),v=open===undefined?!p.classList.contains('show'):open;p.classList.toggle('show',v);$('#bAI').classList.toggle('on',v);
-  if(v){if(!AI.cfg.key)$('#aiSet').open=true;if(!S.prim)select(S.root)}}
+  if(v){if(!Object.keys(PROV).some(aiReady))$('#aiSet').open=true;if(!S.prim)select(S.root)}}
 function aiMsg(t,cls=''){const m=$('#aiMsg');m.className=cls;m.textContent=t}
 function aiBusy(b){AI.busy=b;$('#ai').classList.toggle('busy',b);$('#aiRun').innerHTML=b?ic('loader-circle','animation:spin 1s linear infinite')+' Stop':ic('send-horizontal')+' Run'}
 aiBusy(false);
@@ -942,19 +984,31 @@ $('#aiChips').addEventListener('click',e=>{const c=e.target.closest('[data-q]');
 $('#aiRun').onclick=()=>{if(AI.busy){AI.ctl&&AI.ctl.abort();return}const t=$('#aiPrompt').value.trim();if(!t)return aiMsg('Type an instruction first.','err');aiEdit(t)};
 $('#aiGen').onclick=()=>{const t=$('#aiPrompt').value.trim();if(!t)return aiMsg('Type a topic first.','err');aiGenerate(t)};
 $('#ai').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&e.target.id==='aiPrompt'){e.preventDefault();$('#aiRun').click()}});
-$('#aiProv').value=AI.cfg.provider;$('#aiKey').value=AI.cfg.key;$('#aiModel').value=AI.cfg.model;$('#aiBase').value=AI.cfg.base;
-function aiSaveCfg(){AI.cfg={provider:$('#aiProv').value,key:$('#aiKey').value.trim(),model:$('#aiModel').value.trim(),base:$('#aiBase').value.trim()};store.set('mm7.ai',JSON.stringify(AI.cfg));
-  $('#aiBase').placeholder=AI.cfg.provider==='anthropic'?'https://api.anthropic.com':'https://api.openai.com/v1'}
-['aiProv','aiKey','aiModel','aiBase'].forEach(i=>$('#'+i).addEventListener('change',aiSaveCfg));aiSaveCfg();
+function aiFields(){const k=AI.cfg.provider;AI.shown=k;$('#aiProv').value=k;$('#aiKey').value=AI.cfg.keys[k]||'';$('#aiModel').value=AI.cfg.models[k]||'';$('#aiModel').placeholder=PROV[k].model||'model name';
+  $('#aiBase').value=AI.cfg.bases[k]||'';$('#aiBase').placeholder=PROV[k].base;$('#aiFb').checked=!!AI.cfg.fallback;
+  $('#aiOwn').style.display=k==='proxy'?'none':'';$('#aiProvInfo').textContent=(PROXY?'Built-in AI: ready. ':'Built-in AI: not configured (see server/README.md). ')+'Own keys saved: '+(Object.keys(PROV).filter(x=>AI.cfg.keys[x]).map(x=>PROV[x].name).join(', ')||'none yet')}
+function aiSaveCfg(){const old=AI.shown;AI.cfg.keys[old]=$('#aiKey').value.trim();AI.cfg.models[old]=$('#aiModel').value.trim();AI.cfg.bases[old]=$('#aiBase').value.trim();AI.cfg.fallback=$('#aiFb').checked;AI.cfg.provider=$('#aiProv').value;
+  store.set('mm7.ai',JSON.stringify(AI.cfg));aiFields()}
+['aiProv','aiKey','aiModel','aiBase','aiFb'].forEach(i=>$('#'+i).addEventListener('change',aiSaveCfg));aiFields();
 function aiQuick(k){const q=AIQ.find(x=>x[0]===k);let ins=q[3];
   if(k==='translate'){const l=$('#aiPrompt').value.trim();if(!l)return aiMsg('Type the target language in the box (e.g. English), then press Translate.','err');ins=`Translate the text (and notes) of every node in scope into ${l}. Use update ops.`}
   aiEdit(ins)}
-async function aiCall(system,user){
-  const c=AI.cfg;if(!c.key){$('#aiSet').open=true;throw new Error('Add your API key in Settings first.')}if(!c.model)throw new Error('Set a model name in Settings.');
-  const ctl=AI.ctl=new AbortController();let r,j;
-  if(c.provider==='anthropic'){r=await fetch((c.base||'https://api.anthropic.com').replace(/\/$/,'')+'/v1/messages',{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json','x-api-key':c.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:c.model,max_tokens:8000,system,messages:[{role:'user',content:user}]})});
+async function aiCall(system,user,json=true){
+  const C=AI.cfg,ready=aiReady;
+  const order=[C.provider,...Object.keys(PROV).filter(k=>k!==C.provider)].filter((k,i)=>ready(k)&&(i===0||C.fallback));
+  if(!order.length){$('#aiSet').open=true;throw new Error('AI is not set up yet: deploy the proxy in server/README.md (then set aiProxy in config.js) or add your own key in Settings.')}
+  const ctl=AI.ctl=new AbortController();let last;
+  for(const k of order){try{const t=await aiProvider(k,system,user,json,ctl.signal);AI.used=k==='proxy'?'Built-in AI'+(AI.via?' · '+AI.via:''):PROV[k].name;return t}catch(e){if(e.name==='AbortError')throw e;last=new Error(PROV[k].name+': '+e.message);console.warn(last.message)}}
+  throw last}
+async function aiProvider(k,system,user,json,signal){
+  if(k==='proxy'){const r=await fetch(PROXY,{method:'POST',signal,headers:{'content-type':'application/json'},body:JSON.stringify({system,user,json})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.text)throw new Error(j.error||('HTTP '+r.status));AI.via=j.provider;return j.text}
+  const C=AI.cfg,key=C.keys[k],model=C.models[k]||PROV[k].model,base=(C.bases[k]||PROV[k].base).replace(/\/$/,'');let r,j;
+  if(k==='gemini'){r=await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',signal,headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:user}]}],generationConfig:{maxOutputTokens:8192,...(json?{responseMimeType:'application/json'}:{})}})});
+    j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+    const t=((j.candidates||[])[0]&&(j.candidates[0].content||{}).parts||[]).map(x=>x.text||'').join('');if(!t)throw new Error('empty reply');return t}
+  if(k==='anthropic'){r=await fetch(base+'/v1/messages',{method:'POST',signal,headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model,max_tokens:8000,system,messages:[{role:'user',content:user}]})});
     j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));return(j.content||[]).map(b=>b.text||'').join('')}
-  r=await fetch((c.base||'https://api.openai.com/v1').replace(/\/$/,'')+'/chat/completions',{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json',authorization:'Bearer '+c.key},body:JSON.stringify({model:c.model,messages:[{role:'system',content:system},{role:'user',content:user}]})});
+  r=await fetch(base+'/chat/completions',{method:'POST',signal,headers:{'content-type':'application/json',authorization:'Bearer '+key},body:JSON.stringify({model,temperature:.4,messages:[{role:'system',content:system},{role:'user',content:user}],...(json&&k==='groq'?{response_format:{type:'json_object'}}:{})})});
   j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));return j.choices&&j.choices[0]&&j.choices[0].message.content||''}
 function parseAIJson(t){t=t.replace(/```(?:json)?/g,'');const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<a)throw new Error('AI reply was not valid JSON');return JSON.parse(t.slice(a,b+1))}
 const aiIcons=()=>Object.keys(ICONS).filter(k=>!['loader-circle','send-horizontal','undo-2','redo-2','chevron-down','chevron-left','chevron-right','x','plus','minus','ban','unfold-vertical','fold-vertical','zoom-in','maximize'].includes(k)).join(', ');
@@ -996,14 +1050,14 @@ Rules: node text is short (1-6 words, max 50 chars). Answer in the same language
     const{st,touched}=r;if(!touched.length&&!st.d){aiMsg(d.say||'AI made no changes.');return}
     S.dirty=true;relayout();touched.forEach(n=>{if(S.nodes.has(n.id)){n.flash=1;if(n.tsc)burst(n.x,n.y,n._c,6)}});select(S.nodes.has(sel.id)?sel:S.root);commit();
     if(st.a>3)fit();sfx(760,.15);
-    aiMsg(`${d.say?d.say+' — ':''}added ${st.a}, updated ${st.u}, moved ${st.m}, deleted ${st.d}.`,'ok');toast('AI applied — Ctrl+Z to undo')}
+    aiMsg(`${d.say?d.say+' — ':''}added ${st.a}, updated ${st.u}, moved ${st.m}, deleted ${st.d}. (via ${AI.used})`,'ok');toast('AI applied — Ctrl+Z to undo')}
   catch(e){aiMsg(e.name==='AbortError'?'Stopped.':'Error: '+e.message,e.name==='AbortError'?'':'err')}
   finally{aiBusy(false);AI.target=null}}
 async function aiGenerate(topic){
   if(AI.busy)return;if(S.nodes.size>3&&!confirm('Replace the current map with a new AI-generated one? (Undo is still available.)'))return;
   const system=`You create mind maps. Output ONLY an indented outline (2 spaces per level), no markdown fences or commentary. The first line is the single root node. Use 3-7 main branches, each with 2-5 children, depth up to 3. Labels are short (1-6 words). You may start a line with :icon-name: followed by a space, using only: ${aiIcons()}. Write in the same language as the topic.`;
   AI.target=S.root;aiBusy(true);aiMsg('Generating map…');
-  try{let out=(await aiCall(system,`Topic: ${topic}`)).replace(/```\w*/g,'').trim();
+  try{let out=(await aiCall(system,`Topic: ${topic}`,false)).replace(/```\w*/g,'').trim();
     if(!newMapFromOutline(out,topic.slice(0,40)))throw new Error('Could not read AI outline');
     S.order.forEach(n=>n.flash=1);aiMsg('New map created.','ok');toast('AI map created')}
   catch(e){aiMsg(e.name==='AbortError'?'Stopped.':'Error: '+e.message,'err')}
@@ -1012,7 +1066,7 @@ async function aiGenerate(topic){
 /* ============ main loop ============ */
 let last=performance.now();
 function frame(now){const dt=(now-last)/1000;last=now;
-  try{step(dt);ctx.setTransform(DPR,0,0,DPR,0,0);render(ctx,W,H,cam);if(S.editing)updateEd();if((frame.n=(frame.n||0)+1)%2===0)drawMini()}catch(err){console.error(err)}
+  try{step(dt);ctx.setTransform(DPR,0,0,DPR,0,0);render(ctx,W,H,cam);if(S.editing)updateEd();updateNT();if((frame.n=(frame.n||0)+1)%2===0)drawMini()}catch(err){console.error(err)}
   requestAnimationFrame(frame)}
 
 /* ============ init ============ */

@@ -1,0 +1,8 @@
+name = "mindmap-7mit-ai"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Comma-separated list of sites allowed to call the proxy, e.g. "https://yourname.github.io".
+# "*" = any site (fine for testing; restrict it in production).
+ALLOWED_ORIGINS = "*"
